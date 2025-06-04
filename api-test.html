@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Al Fatah Enterprise - API Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-result { margin: 10px 0; padding: 10px; border-radius: 5px; }
+        .success { background-color: #d4edda; border: 1px solid #c3e6cb; }
+        .error { background-color: #f8d7da; border: 1px solid #f5c6cb; }
+        .pending { background-color: #fff3cd; border: 1px solid #ffeaa7; }
+        button { padding: 10px 20px; margin: 5px; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <h1>Al Fatah Enterprise - Backend API Test</h1>
+    <p>Testing the backend server connection and API endpoints.</p>
+    
+    <button onclick="testHealth()">Test Health</button>
+    <button onclick="testCompany()">Test Company Info</button>
+    <button onclick="testServices()">Test Services</button>
+    <button onclick="testProjects()">Test Projects</button>
+    <button onclick="testTeam()">Test Team</button>
+    <button onclick="testTestimonials()">Test Testimonials</button>
+    <button onclick="testBlog()">Test Blog</button>
+    
+    <div id="results"></div>
+
+    <script>
+        const API_BASE = 'http://localhost:3001';
+        
+        function addResult(test, status, data) {
+            const results = document.getElementById('results');
+            const div = document.createElement('div');
+            div.className = `test-result ${status}`;
+            div.innerHTML = `
+                <strong>${test}:</strong> ${status.toUpperCase()}<br>
+                <pre>${JSON.stringify(data, null, 2)}</pre>
+            `;
+            results.appendChild(div);
+        }
+        
+        async function testEndpoint(name, url) {
+            addResult(name, 'pending', 'Testing...');
+            try {
+                const response = await fetch(url);
+                const data = await response.json();
+                if (response.ok) {
+                    addResult(name, 'success', data);
+                } else {
+                    addResult(name, 'error', data);
+                }
+            } catch (error) {
+                addResult(name, 'error', { error: error.message });
+            }
+        }
+        
+        function testHealth() {
+            testEndpoint('Health Check', `${API_BASE}/health`);
+        }
+        
+        function testCompany() {
+            testEndpoint('Company Info', `${API_BASE}/api/v1/company`);
+        }
+        
+        function testServices() {
+            testEndpoint('Services', `${API_BASE}/api/v1/services`);
+        }
+        
+        function testProjects() {
+            testEndpoint('Projects', `${API_BASE}/api/v1/projects`);
+        }
+        
+        function testTeam() {
+            testEndpoint('Team', `${API_BASE}/api/v1/team`);
+        }
+        
+        function testTestimonials() {
+            testEndpoint('Testimonials', `${API_BASE}/api/v1/testimonials`);
+        }
+        
+        function testBlog() {
+            testEndpoint('Blog Posts', `${API_BASE}/api/v1/blog/posts`);
+        }
+        
+        // Auto-test on load
+        window.onload = function() {
+            setTimeout(testHealth, 1000);
+        };
+    </script>
+</body>
+</html>

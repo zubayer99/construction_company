@@ -1,0 +1,640 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// User Management
+model User {
+  id                String    @id @default(cuid())
+  email             String    @unique
+  passwordHash      String    @map("password_hash")
+  role              UserRole
+  organizationId    String?   @map("organization_id")
+  firstName         String    @map("first_name")
+  lastName          String    @map("last_name")
+  phone             String?
+  isActive          Boolean   @default(true) @map("is_active")
+  emailVerified     Boolean   @default(false) @map("email_verified")
+  emailVerificationToken String? @unique @map("email_verification_token") // Added for email verification
+  emailVerificationTokenExpires DateTime? @map("email_verification_token_expires") // Added for email verification token expiry
+  mfaEnabled        Boolean   @default(false) @map("mfa_enabled")
+  mfaSecret         String?   @map("mfa_secret")
+  // mfaChallenge      String?   @map("mfa_challenge") // Optional: if a specific challenge-response flow for MFA is implemented
+  lastLogin         DateTime? @map("last_login")
+  loginAttempts     Int       @default(0) @map("login_attempts")
+  lockedUntil       DateTime? @map("locked_until")
+  passwordResetToken String?  @map("password_reset_token")
+  passwordResetExpires DateTime? @map("password_reset_expires")
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+  // Relations
+  organization      Organization? @relation(fields: [organizationId], references: [id])
+  createdTenders    Tender[]      @relation("TenderCreator")
+  evaluatedBids     BidEvaluation[]
+  sentNotifications Notification[] @relation("NotificationSender")
+  receivedNotifications Notification[] @relation("NotificationReceiver")
+  auditLogs         AuditLog[]
+  refreshTokens     RefreshToken[]
+  blogPosts         BlogPost[]
+  assignedInquiries ContactInquiry[]
+
+  @@map("users")
+}
+
+model Organization {
+  id                 String             @id @default(cuid())
+  name               String
+  type               OrganizationType
+  registrationNumber String             @unique @map("registration_number")
+  taxId              String?            @unique @map("tax_id")
+  address            String
+  city               String
+  state              String
+  zipCode            String             @map("zip_code")
+  country            String             @default("Bangladesh")
+  contactEmail       String             @map("contact_email")
+  contactPhone       String             @map("contact_phone")
+  website            String?
+  verificationStatus VerificationStatus @default(PENDING) @map("verification_status")
+  verificationDocs   Json?              @map("verification_docs")
+  isActive           Boolean            @default(true) @map("is_active")
+  createdAt          DateTime           @default(now()) @map("created_at")
+  updatedAt          DateTime           @updatedAt @map("updated_at")
+
+  // Relations
+  users              User[]
+  bids               Bid[]
+  contracts          Contract[]
+
+  @@map("organizations")
+}
+
+// Tender Management
+model Tender {
+  id                String         @id @default(cuid())
+  title             String
+  description       String
+  category          String
+  estimatedValue    Decimal        @map("estimated_value")
+  currency          String         @default("BDT")
+  submissionDeadline DateTime      @map("submission_deadline")
+  openingDate       DateTime       @map("opening_date")
+  status            TenderStatus   @default(DRAFT)
+  procurementMethod String         @map("procurement_method")
+  eligibilityCriteria Json?        @map("eligibility_criteria")
+  evaluationCriteria Json?         @map("evaluation_criteria")
+  termsConditions   String?        @map("terms_conditions")
+  createdById       String         @map("created_by_id")
+  publishedAt       DateTime?      @map("published_at")
+  closedAt          DateTime?      @map("closed_at")
+  isPublic          Boolean        @default(true) @map("is_public")
+  createdAt         DateTime       @default(now()) @map("created_at")
+  updatedAt         DateTime       @updatedAt @map("updated_at")
+
+  // Relations
+  createdBy         User           @relation("TenderCreator", fields: [createdById], references: [id])
+  documents         TenderDocument[]
+  criteria          TenderCriteria[]
+  bids              Bid[]
+  contract          Contract?
+  notifications     Notification[]
+
+  @@map("tenders")
+}
+
+model TenderDocument {
+  id          String   @id @default(cuid())
+  tenderId    String   @map("tender_id")
+  documentName String  @map("document_name")
+  fileName    String   @map("file_name")
+  filePath    String   @map("file_path")
+  fileSize    Int      @map("file_size")
+  mimeType    String   @map("mime_type")
+  isPublic    Boolean  @default(true) @map("is_public")
+  uploadedAt  DateTime @default(now()) @map("uploaded_at")
+
+  // Relations
+  tender      Tender   @relation(fields: [tenderId], references: [id], onDelete: Cascade)
+
+  @@map("tender_documents")
+}
+
+model TenderCriteria {
+  id               String    @id @default(cuid())
+  tenderId         String    @map("tender_id")
+  criteriaName     String    @map("criteria_name")
+  description      String?
+  weightPercentage Decimal   @map("weight_percentage")
+  scoringMethod    String    @map("scoring_method")
+  maxScore         Decimal   @map("max_score")
+  isRequired       Boolean   @default(true) @map("is_required")
+
+  // Relations
+  tender           Tender    @relation(fields: [tenderId], references: [id], onDelete: Cascade)
+  evaluations      BidEvaluation[]
+
+  @@map("tender_criteria")
+}
+
+// Bid Management
+model Bid {
+  id             String      @id @default(cuid())
+  tenderId       String      @map("tender_id")
+  organizationId String      @map("organization_id")
+  totalAmount    Decimal     @map("total_amount")
+  currency       String      @default("BDT")
+  status         BidStatus   @default(SUBMITTED)
+  technicalScore Decimal?    @map("technical_score")
+  financialScore Decimal?    @map("financial_score")
+  totalScore     Decimal?    @map("total_score")
+  ranking        Int?
+  proposal       String?
+  submittedAt    DateTime    @default(now()) @map("submitted_at")
+  evaluatedAt    DateTime?   @map("evaluated_at")
+  updatedAt      DateTime    @updatedAt @map("updated_at")
+
+  // Relations
+  tender         Tender      @relation(fields: [tenderId], references: [id])
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  documents      BidDocument[]
+  evaluations    BidEvaluation[]
+  contract       Contract?
+
+  @@unique([tenderId, organizationId])
+  @@map("bids")
+}
+
+model BidDocument {
+  id           String   @id @default(cuid())
+  bidId        String   @map("bid_id")
+  documentType String   @map("document_type")
+  fileName     String   @map("file_name")
+  originalName String   @map("original_name")
+  filePath     String   @map("file_path")
+  fileSize     Int      @map("file_size")
+  mimeType     String   @map("mime_type")
+  uploadedAt   DateTime @default(now()) @map("uploaded_at")
+
+  // Relations
+  bid          Bid      @relation(fields: [bidId], references: [id], onDelete: Cascade)
+
+  @@map("bid_documents")
+}
+
+model BidEvaluation {
+  id          String   @id @default(cuid())
+  bidId       String   @map("bid_id")
+  criteriaId  String   @map("criteria_id")
+  evaluatorId String   @map("evaluator_id")
+  score       Decimal
+  maxScore    Decimal  @map("max_score")
+  comments    String?
+  evaluatedAt DateTime @default(now()) @map("evaluated_at")
+
+  // Relations
+  bid         Bid      @relation(fields: [bidId], references: [id], onDelete: Cascade)
+  criteria    TenderCriteria @relation(fields: [criteriaId], references: [id])
+  evaluator   User     @relation(fields: [evaluatorId], references: [id])
+
+  @@unique([bidId, criteriaId, evaluatorId])
+  @@map("bid_evaluations")
+}
+
+// Contract Management
+model Contract {
+  id              String            @id @default(cuid())
+  contractNumber  String            @unique @map("contract_number")
+  tenderId        String            @unique @map("tender_id")
+  awardedBidId    String            @unique @map("awarded_bid_id")
+  organizationId  String            @map("organization_id")
+  totalValue      Decimal           @map("total_value")
+  currency        String            @default("BDT")
+  startDate       DateTime          @map("start_date")
+  endDate         DateTime          @map("end_date")
+  status          ContractStatus    @default(ACTIVE)
+  performanceRating Decimal?        @map("performance_rating")
+  terms           String?
+  signedAt        DateTime?         @map("signed_at")
+  completedAt     DateTime?         @map("completed_at")
+  createdAt       DateTime          @default(now()) @map("created_at")
+  updatedAt       DateTime          @updatedAt @map("updated_at")
+
+  // Relations
+  tender          Tender            @relation(fields: [tenderId], references: [id])
+  awardedBid      Bid               @relation(fields: [awardedBidId], references: [id])
+  organization    Organization      @relation(fields: [organizationId], references: [id])
+  milestones      ContractMilestone[]
+  payments        ContractPayment[]
+
+  @@map("contracts")
+}
+
+model ContractMilestone {
+  id               String            @id @default(cuid())
+  contractId       String            @map("contract_id")
+  milestoneName    String            @map("milestone_name")
+  description      String?
+  dueDate          DateTime          @map("due_date")
+  completionDate   DateTime?         @map("completion_date")
+  status           MilestoneStatus   @default(PENDING)
+  paymentPercentage Decimal          @map("payment_percentage")
+  deliverables     Json?
+  createdAt        DateTime          @default(now()) @map("created_at")
+
+  // Relations
+  contract         Contract          @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  payments         ContractPayment[]
+
+  @@map("contract_milestones")
+}
+
+model ContractPayment {
+  id              String          @id @default(cuid())
+  contractId      String          @map("contract_id")
+  milestoneId     String?         @map("milestone_id")
+  amount          Decimal
+  currency        String          @default("BDT")
+  paymentDate     DateTime?       @map("payment_date")
+  status          PaymentStatus   @default(PENDING)
+  referenceNumber String?         @map("reference_number")
+  description     String?
+  createdAt       DateTime        @default(now()) @map("created_at")
+
+  // Relations
+  contract        Contract        @relation(fields: [contractId], references: [id])
+  milestone       ContractMilestone? @relation(fields: [milestoneId], references: [id])
+
+  @@map("contract_payments")
+}
+
+// Audit & Compliance
+model AuditLog {
+  id          String   @id @default(cuid())
+  userId      String?  @map("user_id")
+  action      String
+  tableName   String   @map("table_name")
+  recordId    String   @map("record_id")
+  oldValues   Json?    @map("old_values")
+  newValues   Json?    @map("new_values")
+  ipAddress   String   @map("ip_address")
+  userAgent   String   @map("user_agent")
+  timestamp   DateTime @default(now())
+
+  // Relations
+  user        User?    @relation(fields: [userId], references: [id])
+
+  @@map("audit_logs")
+}
+
+model Notification {
+  id          String           @id @default(cuid())
+  senderId    String?          @map("sender_id")
+  receiverId  String           @map("receiver_id")
+  type        NotificationType
+  title       String
+  message     String
+  tenderId    String?          @map("tender_id")
+  readStatus  Boolean          @default(false) @map("read_status")
+  sentAt      DateTime         @default(now()) @map("sent_at")
+  readAt      DateTime?        @map("read_at")
+
+  // Relations
+  sender      User?            @relation("NotificationSender", fields: [senderId], references: [id])
+  receiver    User             @relation("NotificationReceiver", fields: [receiverId], references: [id])
+  tender      Tender?          @relation(fields: [tenderId], references: [id])
+
+  @@map("notifications")
+}
+
+model SystemSetting {
+  id          String   @id @default(cuid())
+  settingKey  String   @unique @map("setting_key")
+  settingValue String  @map("setting_value")
+  description String?
+  category    String?
+  updatedById String?  @map("updated_by_id")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("system_settings")
+}
+
+model RefreshToken {
+  id        String   @id @default(cuid())
+  userId    String   @map("user_id")
+  token     String   @unique
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Relations
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("refresh_tokens")
+}
+
+// Enums
+enum UserRole {
+  SUPER_ADMIN
+  ADMIN
+  PROCUREMENT_OFFICER
+  SUPPLIER
+  AUDITOR
+  CITIZEN
+}
+
+enum OrganizationType {
+  GOVERNMENT_AGENCY
+  SUPPLIER
+  CONTRACTOR
+  CONSULTANT
+}
+
+enum VerificationStatus {
+  PENDING
+  VERIFIED
+  REJECTED
+  SUSPENDED
+}
+
+enum TenderStatus {
+  DRAFT
+  PUBLISHED
+  CLOSED
+  EVALUATED
+  AWARDED
+  CANCELLED
+}
+
+enum BidStatus {
+  DRAFT
+  SUBMITTED
+  UNDER_EVALUATION
+  QUALIFIED
+  DISQUALIFIED
+  AWARDED
+  REJECTED
+}
+
+enum ContractStatus {
+  ACTIVE
+  COMPLETED
+  TERMINATED
+  SUSPENDED
+  EXPIRED
+}
+
+enum MilestoneStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  OVERDUE
+  CANCELLED
+}
+
+enum PaymentStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+enum NotificationType {
+  TENDER_PUBLISHED
+  TENDER_DEADLINE_REMINDER
+  BID_SUBMITTED
+  BID_EVALUATED
+  CONTRACT_AWARDED
+  PAYMENT_PROCESSED
+  SYSTEM_ANNOUNCEMENT
+  DOCUMENT_UPLOADED
+}
+
+// Business Website Models
+model CompanyInfo {
+  id               String   @id @default(cuid())
+  name             String
+  tagline          String?
+  description      String
+  mission          String?
+  vision           String?
+  founded          DateTime?
+  address          String
+  city             String
+  state            String
+  zipCode          String   @map("zip_code")
+  country          String   @default("Bangladesh")
+  phone            String
+  email            String
+  website          String?
+  logoUrl          String?  @map("logo_url")
+  bannerUrl        String?  @map("banner_url")
+  socialMedia      Json?    @map("social_media") // {"facebook": "url", "linkedin": "url", etc}
+  businessHours    Json?    @map("business_hours")
+  isActive         Boolean  @default(true) @map("is_active")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  @@map("company_info")
+}
+
+model Service {
+  id          String   @id @default(cuid())
+  title       String
+  description String
+  shortDesc   String?  @map("short_desc")
+  imageUrl    String?  @map("image_url")
+  iconName    String?  @map("icon_name") // For icon-based services
+  features    Json?    // Array of features
+  price       Decimal?
+  currency    String   @default("BDT")
+  isActive    Boolean  @default(true) @map("is_active")
+  sortOrder   Int      @default(0) @map("sort_order")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  projects    Project[]
+
+  @@map("services")
+}
+
+model Project {
+  id          String        @id @default(cuid())
+  title       String
+  description String
+  shortDesc   String?       @map("short_desc")
+  serviceId   String?       @map("service_id")
+  client      String?
+  startDate   DateTime?     @map("start_date")
+  endDate     DateTime?     @map("end_date")
+  status      ProjectStatus @default(COMPLETED)
+  imageUrl    String?       @map("image_url")
+  gallery     Json?         // Array of image URLs
+  technologies Json?        // Array of technologies used
+  projectUrl  String?       @map("project_url") // Live demo URL
+  githubUrl   String?       @map("github_url")
+  isActive    Boolean       @default(true) @map("is_active")
+  isFeatured  Boolean       @default(false) @map("is_featured")
+  sortOrder   Int           @default(0) @map("sort_order")
+  createdAt   DateTime      @default(now()) @map("created_at")
+  updatedAt   DateTime      @updatedAt @map("updated_at")
+
+  // Relations
+  service     Service?      @relation(fields: [serviceId], references: [id])
+
+  @@map("projects")
+}
+
+model TeamMember {
+  id          String   @id @default(cuid())
+  name        String
+  position    String
+  bio         String?
+  image       String?  // Added missing field
+  imageUrl    String?  @map("image_url")
+  email       String?
+  phone       String?
+  linkedinUrl String?  @map("linkedin_url")
+  linkedIn    String?  @map("linked_in") // Added for route compatibility
+  twitterUrl  String?  @map("twitter_url")
+  skills      Json?    // Array of skills
+  isActive    Boolean  @default(true) @map("is_active")
+  sortOrder   Int      @default(0) @map("sort_order")
+  displayOrder Int     @default(0) @map("display_order") // Added missing field
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("team_members")
+}
+
+model Testimonial {
+  id        String   @id @default(cuid())
+  name      String
+  clientName String? @map("client_name") // Added missing field
+  clientCompany String? @map("client_company") // Added for route compatibility
+  position  String?
+  company   String?
+  content   String
+  rating    Int      @default(5) // 1-5 stars
+  imageUrl  String?  @map("image_url")
+  isActive  Boolean  @default(true) @map("is_active")
+  sortOrder Int      @default(0) @map("sort_order")
+  displayOrder Int   @default(0) @map("display_order") // Added missing field
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("testimonials")
+}
+
+model BlogPost {
+  id          String      @id @default(cuid())
+  title       String
+  slug        String      @unique
+  excerpt     String?
+  content     String
+  authorId    String      @map("author_id")
+  categoryId  String?     @map("category_id")
+  imageUrl    String?     @map("image_url")
+  featuredImage String?   @map("featured_image") // Added missing field
+  status      PostStatus  @default(DRAFT)
+  publishedAt DateTime?   @map("published_at")
+  isActive    Boolean     @default(true) @map("is_active")
+  isFeatured  Boolean     @default(false) @map("is_featured")
+  viewCount   Int         @default(0) @map("view_count")
+  views       Int         @default(0) // Added missing field
+  tags        Json?       // Array of tags
+  seoTitle    String?     @map("seo_title")
+  seoDesc     String?     @map("seo_desc")
+  createdAt   DateTime    @default(now()) @map("created_at")
+  updatedAt   DateTime    @updatedAt @map("updated_at")
+
+  // Relations
+  author      User        @relation(fields: [authorId], references: [id])
+  category    BlogCategory? @relation(fields: [categoryId], references: [id])
+
+  @@map("blog_posts")
+}
+
+model BlogCategory {
+  id          String     @id @default(cuid())
+  name        String     @unique
+  slug        String     @unique
+  description String?
+  isActive    Boolean    @default(true) @map("is_active")
+  sortOrder   Int        @default(0) @map("sort_order")
+  createdAt   DateTime   @default(now()) @map("created_at")
+  updatedAt   DateTime   @updatedAt @map("updated_at")
+
+  // Relations
+  posts       BlogPost[]
+
+  @@map("blog_categories")
+}
+
+model ContactInquiry {
+  id        String        @id @default(cuid())
+  name      String
+  email     String
+  phone     String?
+  company   String?
+  subject   String
+  message   String
+  serviceInterest String? @map("service_interest") // Added missing field
+  status    InquiryStatus @default(NEW)
+  assignedTo String?      @map("assigned_to")
+  response  String?
+  notes     String?       // Added missing field
+  respondedAt DateTime?   @map("responded_at")
+  source    String?       // "contact_form", "quote_request", etc
+  createdAt DateTime      @default(now()) @map("created_at")
+  updatedAt DateTime      @updatedAt @map("updated_at")
+
+  // Relations
+  assignedUser User?       @relation(fields: [assignedTo], references: [id])
+
+  @@map("contact_inquiries")
+}
+
+model NewsletterSubscriber {
+  id          String   @id @default(cuid())
+  email       String   @unique
+  firstName   String?  @map("first_name") // Added missing field
+  lastName    String?  @map("last_name") // Added missing field
+  unsubscribeToken String? @map("unsubscribe_token") // Added for route compatibility
+  isActive    Boolean  @default(true) @map("is_active")
+  subscribedAt DateTime @default(now()) @map("subscribed_at")
+  unsubscribedAt DateTime? @map("unsubscribed_at")
+  createdAt   DateTime @default(now()) @map("created_at") // Added missing field
+  updatedAt   DateTime @updatedAt @map("updated_at") // Added missing field
+
+  @@map("newsletter_subscribers")
+}
+
+// Additional Enums for Business Models
+enum ProjectStatus {
+  PLANNING
+  IN_PROGRESS
+  COMPLETED
+  ON_HOLD
+  CANCELLED
+}
+
+enum PostStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum InquiryStatus {
+  NEW
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}

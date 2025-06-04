@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Al Fatah Enterprise API Test Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #2c3e50 0%, #3498db 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        
+        .header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+        
+        .content {
+            padding: 30px;
+        }
+        
+        .test-section {
+            margin-bottom: 40px;
+        }
+        
+        .test-section h2 {
+            color: #2c3e50;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 3px solid #3498db;
+        }
+        
+        .api-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .api-card {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            border-left: 4px solid #3498db;
+            transition: all 0.3s ease;
+        }
+        
+        .api-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+        }
+        
+        .api-card h3 {
+            color: #2c3e50;
+            margin-bottom: 10px;
+        }
+        
+        .api-card .endpoint {
+            font-family: 'Courier New', monospace;
+            background: #e9ecef;
+            padding: 8px 12px;
+            border-radius: 5px;
+            margin: 10px 0;
+            font-size: 0.9rem;
+        }
+        
+        .test-btn {
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            margin-right: 10px;
+            margin-top: 10px;
+        }
+        
+        .test-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(40, 167, 69, 0.4);
+        }
+        
+        .test-all-btn {
+            background: linear-gradient(135deg, #007bff 0%, #6610f2 100%);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 1.1rem;
+            transition: all 0.3s ease;
+            margin: 20px 0;
+            display: block;
+            width: 100%;
+        }
+        
+        .test-all-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(0, 123, 255, 0.4);
+        }
+        
+        .results {
+            margin-top: 30px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            min-height: 100px;
+        }
+        
+        .results h3 {
+            color: #2c3e50;
+            margin-bottom: 15px;
+        }
+        
+        .result-item {
+            padding: 10px;
+            margin: 5px 0;
+            border-radius: 5px;
+            border-left: 4px solid #dee2e6;
+        }
+        
+        .result-item.success {
+            background: #d4edda;
+            border-left-color: #28a745;
+            color: #155724;
+        }
+        
+        .result-item.error {
+            background: #f8d7da;
+            border-left-color: #dc3545;
+            color: #721c24;
+        }
+        
+        .result-item.loading {
+            background: #d1ecf1;
+            border-left-color: #17a2b8;
+            color: #0c5460;
+        }
+        
+        .loading-spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #3498db;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 10px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+        
+        .status-indicator.success {
+            background: #28a745;
+        }
+        
+        .status-indicator.error {
+            background: #dc3545;
+        }
+        
+        .status-indicator.pending {
+            background: #ffc107;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🏭 Al Fatah Enterprise</h1>
+            <p>Backend API Testing Dashboard</p>
+        </div>
+        
+        <div class="content">
+            <div class="test-section">
+                <h2>🔧 Business API Endpoints</h2>
+                <p>Test all Al Fatah Enterprise business-focused API endpoints to verify backend integration.</p>
+                
+                <button class="test-all-btn" onclick="testAllApis()">
+                    🚀 Test All API Endpoints
+                </button>
+                
+                <div class="api-grid">
+                    <div class="api-card">
+                        <h3>🏢 Company Information</h3>
+                        <div class="endpoint">GET /api/v1/company</div>
+                        <p>Retrieve company details, mission, and contact information.</p>
+                        <button class="test-btn" onclick="testEndpoint('/api/v1/company', 'Company Info')">Test</button>
+                    </div>
+                    
+                    <div class="api-card">
+                        <h3>⚙️ Services Portfolio</h3>
+                        <div class="endpoint">GET /api/v1/services</div>
+                        <p>Get all industrial equipment and services offered.</p>
+                        <button class="test-btn" onclick="testEndpoint('/api/v1/services', 'Services')">Test</button>
+                    </div>
+                    
+                    <div class="api-card">
+                        <h3>🏗️ Projects Showcase</h3>
+                        <div class="endpoint">GET /api/v1/projects</div>
+                        <p>Display completed and ongoing projects.</p>
+                        <button class="test-btn" onclick="testEndpoint('/api/v1/projects', 'Projects')">Test</button>
+                    </div>
+                    
+                    <div class="api-card">
+                        <h3>👥 Team Members</h3>
+                        <div class="endpoint">GET /api/v1/team</div>
+                        <p>List team members and their expertise.</p>
+                        <button class="test-btn" onclick="testEndpoint('/api/v1/team', 'Team')">Test</button>
+                    </div>
+                    
+                    <div class="api-card">
+                        <h3>⭐ Client Testimonials</h3>
+                        <div class="endpoint">GET /api/v1/testimonials</div>
+                        <p>Customer reviews and testimonials.</p>
+                        <button class="test-btn" onclick="testEndpoint('/api/v1/testimonials', 'Testimonials')">Test</button>
+                    </div>
+                    
+                    <div class="api-card">
+                        <h3>📝 Blog Posts</h3>
+                        <div class="endpoint">GET /api/v1/blog/posts</div>
+                        <p>Latest blog posts and industry insights.</p>
+                        <button class="test-btn" onclick="testEndpoint('/api/v1/blog/posts', 'Blog Posts')">Test</button>
+                    </div>
+                    
+                    <div class="api-card">
+                        <h3>📧 Newsletter</h3>
+                        <div class="endpoint">POST /api/v1/newsletter/subscribe</div>
+                        <p>Test newsletter subscription functionality.</p>
+                        <button class="test-btn" onclick="testNewsletterSubscription()">Test</button>
+                    </div>
+                    
+                    <div class="api-card">
+                        <h3>📞 Contact Form</h3>
+                        <div class="endpoint">POST /api/v1/contact</div>
+                        <p>Test contact form submission.</p>
+                        <button class="test-btn" onclick="testContactForm()">Test</button>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="results" id="results">
+                <h3>📊 Test Results</h3>
+                <p>Click "Test All API Endpoints" or individual test buttons to see results here.</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:3001';
+        const resultsContainer = document.getElementById('results');
+        
+        function addResult(name, status, message, data = null) {
+            const resultItem = document.createElement('div');
+            resultItem.className = `result-item ${status}`;
+            
+            const statusIndicator = document.createElement('span');
+            statusIndicator.className = `status-indicator ${status}`;
+            
+            const timestamp = new Date().toLocaleTimeString();
+            let content = `${name} - ${message} [${timestamp}]`;
+            
+            if (data && status === 'success') {
+                if (Array.isArray(data)) {
+                    content += ` (${data.length} items)`;
+                } else if (typeof data === 'object') {
+                    content += ` (${Object.keys(data).length} fields)`;
+                }
+            }
+            
+            resultItem.appendChild(statusIndicator);
+            resultItem.appendChild(document.createTextNode(content));
+            resultsContainer.appendChild(resultItem);
+            resultsContainer.scrollTop = resultsContainer.scrollHeight;
+        }
+        
+        function clearResults() {
+            resultsContainer.innerHTML = '<h3>📊 Test Results</h3>';
+        }
+        
+        async function testEndpoint(endpoint, name) {
+            addResult(name, 'loading', 'Testing...', null);
+            
+            try {
+                const response = await fetch(`${API_BASE}${endpoint}`, {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    addResult(name, 'success', `✅ SUCCESS (${response.status})`, data);
+                } else {
+                    addResult(name, 'error', `❌ FAILED (${response.status})`);
+                }
+            } catch (error) {
+                addResult(name, 'error', `❌ ERROR: ${error.message}`);
+            }
+        }
+        
+        async function testNewsletterSubscription() {
+            addResult('Newsletter', 'loading', 'Testing subscription...');
+            
+            try {
+                const response = await fetch(`${API_BASE}/api/v1/newsletter/subscribe`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        email: 'test@alfatahenterprise.ae',
+                        firstName: 'Test',
+                        lastName: 'User'
+                    })
+                });
+                
+                if (response.ok) {
+                    addResult('Newsletter', 'success', `✅ SUCCESS (${response.status})`);
+                } else {
+                    addResult('Newsletter', 'error', `❌ FAILED (${response.status})`);
+                }
+            } catch (error) {
+                addResult('Newsletter', 'error', `❌ ERROR: ${error.message}`);
+            }
+        }
+        
+        async function testContactForm() {
+            addResult('Contact Form', 'loading', 'Testing submission...');
+            
+            try {
+                const response = await fetch(`${API_BASE}/api/v1/contact`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        name: 'Test Customer',
+                        email: 'customer@company.com',
+                        company: 'Test Company Ltd',
+                        phone: '+971501234567',
+                        subject: 'Equipment Inquiry',
+                        message: 'Interested in industrial equipment for our project.',
+                        services: ['industrial-equipment', 'maintenance']
+                    })
+                });
+                
+                if (response.ok) {
+                    addResult('Contact Form', 'success', `✅ SUCCESS (${response.status})`);
+                } else {
+                    addResult('Contact Form', 'error', `❌ FAILED (${response.status})`);
+                }
+            } catch (error) {
+                addResult('Contact Form', 'error', `❌ ERROR: ${error.message}`);
+            }
+        }
+        
+        async function testAllApis() {
+            clearResults();
+            addResult('Test Suite', 'loading', 'Starting comprehensive API tests...');
+            
+            const endpoints = [
+                { path: '/health', name: 'Health Check' },
+                { path: '/api/v1/company', name: 'Company Info' },
+                { path: '/api/v1/services', name: 'Services' },
+                { path: '/api/v1/projects', name: 'Projects' },
+                { path: '/api/v1/team', name: 'Team Members' },
+                { path: '/api/v1/testimonials', name: 'Testimonials' },
+                { path: '/api/v1/blog/posts', name: 'Blog Posts' },
+                { path: '/api/v1/blog/categories', name: 'Blog Categories' }
+            ];
+            
+            // Test GET endpoints
+            for (const endpoint of endpoints) {
+                await testEndpoint(endpoint.path, endpoint.name);
+                await new Promise(resolve => setTimeout(resolve, 500)); // Small delay
+            }
+            
+            // Test POST endpoints
+            await testNewsletterSubscription();
+            await new Promise(resolve => setTimeout(resolve, 500));
+            await testContactForm();
+            
+            addResult('Test Suite', 'success', '🎉 All tests completed!');
+        }
+        
+        // Test health check on page load
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                testEndpoint('/health', 'Health Check');
+            }, 1000);
+        });
+    </script>
+</body>
+</html>
